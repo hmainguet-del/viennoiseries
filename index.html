@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Viennoiseries toutes chaudes — Maison Régent</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f0eb; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 16px 12px 40px; }
+    .app { max-width: 420px; width: 100%; background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .hero { background: #6B4F30; padding: 28px 20px 24px; text-align: center; }
+    .hero-badge { display: inline-block; background: rgba(255,255,255,0.15); color: #fff; font-size: 11px; padding: 3px 12px; border-radius: 20px; margin-bottom: 12px; letter-spacing: 0.06em; }
+    .hero h1 { color: #fff; font-size: 24px; font-weight: 600; line-height: 1.3; }
+    .hero-sub { color: rgba(255,255,255,0.75); font-size: 13px; margin-top: 8px; }
+    .hero-limit { color: rgba(255,255,255,0.48); font-size: 11px; margin-top: 4px; }
+    .section { padding: 20px 16px 0; }
+    .section-title { font-size: 11px; color: #999; letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 12px; font-weight: 500; }
+    .product-card { background: #faf8f5; border-radius: 12px; border: 1px solid #ede8e0; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 14px; }
+    .product-icon { font-size: 30px; flex-shrink: 0; }
+    .product-info { flex: 1; }
+    .product-name { font-size: 14px; font-weight: 600; color: #2c1a0e; line-height: 1.3; }
+    .product-detail { font-size: 11px; color: #aaa; margin-top: 2px; }
+    .product-price { font-size: 14px; font-weight: 600; color: #6B4F30; margin-top: 4px; }
+    .qty-row { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .qty-btn { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #ddd; background: #fff; color: #2c1a0e; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s; }
+    .qty-btn:active { background: #f0ebe3; }
+    .qty-val { font-size: 16px; font-weight: 600; min-width: 22px; text-align: center; color: #2c1a0e; }
+    .max-warn { font-size: 11px; color: #c0392b; margin-top: 3px; display: none; }
+    .divider { height: 1px; background: #f0ebe3; margin: 20px 0 0; }
+    .slot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    .slot { padding: 10px 2px; border-radius: 10px; border: 1px solid #ede8e0; text-align: center; font-size: 12px; font-weight: 500; cursor: pointer; color: #888; background: #faf8f5; transition: all 0.12s; }
+    .slot.selected { background: #6B4F30; color: #fff; border-color: #6B4F30; }
+    .apt-select { width: 100%; padding: 11px 36px 11px 12px; border-radius: 10px; border: 1px solid #ede8e0; background: #faf8f5; color: #2c1a0e; font-size: 14px; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+    .summary { margin: 16px; background: #faf8f5; border-radius: 12px; border: 1px solid #ede8e0; padding: 14px 16px; }
+    .summary-row { display: flex; justify-content: space-between; font-size: 13px; color: #888; margin-bottom: 7px; }
+    .summary-total { display: flex; justify-content: space-between; font-size: 15px; font-weight: 600; color: #2c1a0e; border-top: 1px solid #ede8e0; padding-top: 10px; margin-top: 4px; }
+    .pay-btn { display: block; width: calc(100% - 32px); margin: 0 16px 10px; padding: 15px; background: #6B4F30; color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; transition: opacity 0.15s; }
+    .pay-btn:disabled { opacity: 0.38; cursor: default; }
+    .pay-btn.loading { opacity: 0.7; cursor: wait; }
+    .stripe-note { text-align: center; font-size: 11px; color: #bbb; margin-bottom: 20px; }
+    .error-msg { margin: 0 16px 12px; padding: 10px 14px; background: #fdf0ef; border-radius: 10px; color: #c0392b; font-size: 13px; display: none; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="hero">
+    <span class="hero-badge">Maison Régent · Pornichet</span>
+    <h1>Viennoiseries<br>toutes chaudes 🥐</h1>
+    <div class="hero-sub">Livrés demain matin à votre porte</div>
+    <div class="hero-limit">Commande jusqu'à 21h la veille</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Votre sélection</div>
+
+    <div class="product-card">
+      <div class="product-icon">🥐</div>
+      <div class="product-info">
+        <div class="product-name">Croissant</div>
+        <div class="product-detail">Beurre AOP Charentes-Poitou</div>
+        <div class="product-price">1,60 €</div>
+        <div class="max-warn" id="warn-croissant">Maximum 10 par commande</div>
+      </div>
+      <div class="qty-row">
+        <button class="qty-btn" onclick="changeQty('croissant',-1)">−</button>
+        <span class="qty-val" id="qty-croissant">0</span>
+        <button class="qty-btn" onclick="changeQty('croissant',1)">+</button>
+      </div>
+    </div>
+
+    <div class="product-card">
+      <div class="product-icon">🍫</div>
+      <div class="product-info">
+        <div class="product-name">Pain au chocolat</div>
+        <div class="product-detail">Beurre AOP Charentes-Poitou</div>
+        <div class="product-price">1,80 €</div>
+        <div class="max-warn" id="warn-choc">Maximum 10 par commande</div>
+      </div>
+      <div class="qty-row">
+        <button class="qty-btn" onclick="changeQty('choc',-1)">−</button>
+        <span class="qty-val" id="qty-choc">0</span>
+        <button class="qty-btn" onclick="changeQty('choc',1)">+</button>
+      </div>
+    </div>
+
+    <div class="product-card">
+      <div class="product-icon">🌾</div>
+      <div class="product-info">
+        <div class="product-name">Petit pain céréales</div>
+        <div class="product-detail">Artisanal</div>
+        <div class="product-price">1,80 €</div>
+        <div class="max-warn" id="warn-cereales">Maximum 10 par commande</div>
+      </div>
+      <div class="qty-row">
+        <button class="qty-btn" onclick="changeQty('cereales',-1)">−</button>
+        <span class="qty-val" id="qty-cereales">0</span>
+        <button class="qty-btn" onclick="changeQty('cereales',1)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section" style="padding-top:18px">
+    <div class="section-title">Heure de livraison</div>
+    <div class="slot-grid">
+      <div class="slot" onclick="selectSlot(this)">7h00</div>
+      <div class="slot" onclick="selectSlot(this)">7h30</div>
+      <div class="slot" onclick="selectSlot(this)">8h00</div>
+      <div class="slot" onclick="selectSlot(this)">8h30</div>
+      <div class="slot" onclick="selectSlot(this)">9h00</div>
+      <div class="slot" onclick="selectSlot(this)">9h30</div>
+      <div class="slot" onclick="selectSlot(this)">10h00</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section" style="padding-top:18px; padding-bottom:4px">
+    <div class="section-title">Votre appartement</div>
+    <select class="apt-select" id="apt-select" onchange="updatePayBtn()">
+      <option value="">— Choisissez votre appartement —</option>
+      <option>Un si bel horizon</option>
+      <option>Au dessus des vagues</option>
+      <option>À l'ombre des pins</option>
+      <option>Après l'océan</option>
+      <option>Un balcon sur la mer</option>
+      <option>L'atelier des artistes</option>
+      <option>En haut de l'escalier</option>
+    </select>
+  </div>
+
+  <div class="summary" id="summary">
+    <div class="summary-row" style="font-style:italic"><span>Aucun article sélectionné</span></div>
+    <div class="summary-total"><span>Total</span><span>0,00 €</span></div>
+  </div>
+
+  <div class="error-msg" id="error-msg"></div>
+
+  <button class="pay-btn" id="pay-btn" disabled onclick="startCheckout()">
+    Sélectionnez des viennoiseries
+  </button>
+  <div class="stripe-note">🔒 Paiement sécurisé via Stripe</div>
+</div>
+
+<script>
+const STRIPE_PK = 'pk_test_XDYS2h4FQOLuUyvKv7ZYodIa00RIifa8td';
+const stripe = Stripe(STRIPE_PK);
+
+const qtys    = { croissant: 0, choc: 0, cereales: 0 };
+const prices  = { croissant: 1.60, choc: 1.80, cereales: 1.80 };
+const names   = { croissant: 'Croissant', choc: 'Pain au chocolat', cereales: 'Petit pain céréales' };
+
+function changeQty(id, delta) {
+  const next = qtys[id] + delta;
+  if (next < 0 || next > 10) {
+    if (next > 10) document.getElementById('warn-' + id).style.display = 'block';
+    return;
+  }
+  document.getElementById('warn-' + id).style.display = 'none';
+  qtys[id] = next;
+  document.getElementById('qty-' + id).textContent = next;
+  updateSummary();
+}
+
+function selectSlot(el) {
+  document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  updatePayBtn();
+}
+
+function fmt(n) { return n.toFixed(2).replace('.', ',') + ' €'; }
+function getTotal() { return Object.keys(qtys).reduce((s, id) => s + qtys[id] * prices[id], 0); }
+
+function updatePayBtn() {
+  const total = getTotal();
+  const slotSelected = document.querySelector('.slot.selected');
+  const apt = document.getElementById('apt-select').value;
+  const btn = document.getElementById('pay-btn');
+  if (total > 0 && slotSelected && apt) {
+    btn.disabled = false;
+    btn.textContent = 'Payer par carte · ' + fmt(total);
+  } else if (total === 0) {
+    btn.disabled = true;
+    btn.textContent = 'Sélectionnez des viennoiseries';
+  } else if (!slotSelected) {
+    btn.disabled = true;
+    btn.textContent = 'Choisissez une heure de livraison';
+  } else {
+    btn.disabled = true;
+    btn.textContent = 'Choisissez votre appartement';
+  }
+}
+
+function updateSummary() {
+  const total = getTotal();
+  let rows = '';
+  for (const id in qtys) {
+    if (qtys[id] > 0) rows += `<div class="summary-row"><span>${qtys[id]} × ${names[id]}</span><span>${fmt(qtys[id] * prices[id])}</span></div>`;
+  }
+  if (!rows) rows = '<div class="summary-row" style="font-style:italic"><span>Aucun article sélectionné</span></div>';
+  document.getElementById('summary').innerHTML = rows + `<div class="summary-total"><span>Total</span><span>${fmt(total)}</span></div>`;
+  updatePayBtn();
+}
+
+async function startCheckout() {
+  const btn = document.getElementById('pay-btn');
+  const errEl = document.getElementById('error-msg');
+  const slot = document.querySelector('.slot.selected')?.textContent;
+  const apartment = document.getElementById('apt-select').value;
+
+  const items = Object.keys(qtys)
+    .filter(id => qtys[id] > 0)
+    .map(id => ({ name: names[id], price: prices[id], quantity: qtys[id] }));
+
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.textContent = 'Redirection en cours…';
+  errEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, slot, apartment }),
+    });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      throw new Error(data.error || 'Erreur inconnue');
+    }
+  } catch (e) {
+    errEl.textContent = 'Une erreur est survenue : ' + e.message;
+    errEl.style.display = 'block';
+    btn.classList.remove('loading');
+    updatePayBtn();
+  }
+}
+</script>
+</body>
+</html>

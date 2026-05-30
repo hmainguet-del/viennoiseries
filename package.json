@@ -1,0 +1,8 @@
+{
+  "name": "viennoiseries-toutes-chaudes",
+  "version": "1.0.0",
+  "description": "Commande de viennoiseries — Maison Régent Pornichet",
+  "dependencies": {
+    "stripe": "^14.0.0"
+  }
+}
