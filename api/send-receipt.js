@@ -9,21 +9,43 @@ module.exports = async (req, res) => {
     const { sessionId } = req.body;
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    // Vérifier que le paiement est bien confirmé
+    if (session.payment_status !== 'paid') {
+      return res.status(200).json({ sent: false, reason: 'not paid' });
+    }
+
     const customerEmail = session.customer_details?.email;
     const apartment = session.metadata?.apartment;
     const slot = session.metadata?.slot;
-
-    if (!customerEmail) return res.status(200).json({ sent: false, reason: 'no email' });
 
     const lineItemsData = await stripe.checkout.sessions.listLineItems(sessionId);
     const items = lineItemsData.data;
     const total = (session.amount_total / 100).toFixed(2).replace('.', ',');
 
+    const lignesTexte = items.map(i =>
+      `• ${i.quantity} × ${i.description} — ${((i.price.unit_amount * i.quantity)/100).toFixed(2).replace('.', ',')} €`
+    ).join('\n');
+
     const lignesHTML = items.map(i =>
       `<tr><td style="padding:8px 0;color:#5c3d1e;font-size:14px;">${i.quantity} × ${i.description}</td><td style="padding:8px 0;color:#5c3d1e;font-size:14px;text-align:right;">${((i.price.unit_amount * i.quantity)/100).toFixed(2).replace('.', ',')} €</td></tr>`
     ).join('');
 
-    const html = `<!DOCTYPE html>
+    // Email de notification à Hervé
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'Viennoiseries <onboarding@resend.dev>',
+        to: ['h.mainguet@le-regent.fr'],
+        subject: `🥐 Nouvelle commande — ${apartment} — ${slot}`,
+        text: `Nouvelle commande reçue !\n\nAppartement : ${apartment}\nHeure de livraison : ${slot}\n\nDétail :\n${lignesTexte}\n\nTotal : ${total} €\n\n---\nViennoiseries toutes chaudes — Maison Régent`,
+      }),
+    });
+
+    // Email reçu au client si email disponible
+    if (customerEmail) {
+      const html = `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f0eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -63,18 +85,20 @@ module.exports = async (req, res) => {
 </body>
 </html>`;
 
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'Maison Régent <onboarding@resend.dev>',
-        to: [customerEmail],
-        subject: '🥐 Votre commande de viennoiseries — Maison Régent',
-        html,
-      }),
-    });
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'Maison Régent <onboarding@resend.dev>',
+          to: [customerEmail],
+          subject: '🥐 Votre commande de viennoiseries — Maison Régent',
+          html,
+        }),
+      });
+    }
 
-    res.status(200).json({ sent: true, to: customerEmail });
+    res.status(200).json({ sent: true, to: customerEmail || 'no client email' });
+
   } catch (err) {
     console.error('Receipt error:', err.message);
     res.status(500).json({ error: err.message });
