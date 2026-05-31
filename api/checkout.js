@@ -25,6 +25,8 @@ module.exports = async (req, res) => {
       quantity: item.quantity,
     }));
 
+    const total = items.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2).replace('.', ',');
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
@@ -35,9 +37,26 @@ module.exports = async (req, res) => {
       payment_intent_data: { metadata: { apartment, slot } },
     });
 
+    // Envoi email de notification via Resend
+    const lignes = items.map(i => `• ${i.quantity} × ${i.name} — ${(i.price * i.quantity).toFixed(2).replace('.', ',')} €`).join('\n');
+
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Viennoiseries <onboarding@resend.dev>',
+        to: ['h.mainguet@le-regent.fr'],
+        subject: `🥐 Nouvelle commande — ${apartment} — ${slot}`,
+        text: `Nouvelle commande reçue !\n\nAppartement : ${apartment}\nHeure de livraison : ${slot}\n\nDétail :\n${lignes}\n\nTotal : ${total} €\n\n---\nViennoiseries toutes chaudes — Maison Régent`,
+      }),
+    });
+
     res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error('Stripe error:', err.message);
+    console.error('Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
