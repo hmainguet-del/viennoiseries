@@ -20,33 +20,18 @@
     <h1>Commande confirmée !</h1>
     <p>Merci pour votre commande.</p>
     <p>Vos viennoiseries toutes chaudes seront livrées demain matin à votre porte.</p>
-    <p id="email-status" style="margin-top:16px; font-size:12px; color:#aaa;">Envoi du reçu en cours…</p>
     <a href="/" class="back">Nouvelle commande</a>
   </div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get('session_id');
-
     if (sessionId) {
       fetch('/api/send-receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId }),
-      })
-      .then(r => r.json())
-      .then(data => {
-        const el = document.getElementById('email-status');
-        if (data.sent) {
-          el.textContent = `Un reçu a été envoyé à ${data.to}`;
-          el.style.color = '#6B4F30';
-        } else {
-          el.textContent = '';
-        }
-      })
-      .catch(() => {
-        document.getElementById('email-status').textContent = '';
-      });
+      }).catch(() => {});
     }
   </script>
 </body>
