@@ -7,9 +7,9 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f0eb; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .card { background: #fff; border-radius: 16px; padding: 40px 32px; max-width: 400px; width: 100%; text-align: center; }
+    .card { background: #fff; border-radius: 16px; padding: 40px 32px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
     .icon { font-size: 56px; margin-bottom: 16px; }
-    h1 { font-size: 22px; font-weight: 500; color: #2c1a0e; margin-bottom: 8px; }
+    h1 { font-size: 22px; font-weight: 600; color: #2c1a0e; margin-bottom: 8px; }
     p { font-size: 14px; color: #888; line-height: 1.6; margin-bottom: 6px; }
     .back { display: inline-block; margin-top: 28px; padding: 12px 24px; background: #6B4F30; color: #fff; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 500; }
   </style>
@@ -20,8 +20,34 @@
     <h1>Commande confirmée !</h1>
     <p>Merci pour votre commande.</p>
     <p>Vos viennoiseries toutes chaudes seront livrées demain matin à votre porte.</p>
-    <p style="margin-top:16px; font-size:12px; color:#aaa;">Un email de confirmation vous a été envoyé par Stripe.</p>
+    <p id="email-status" style="margin-top:16px; font-size:12px; color:#aaa;">Envoi du reçu en cours…</p>
     <a href="/" class="back">Nouvelle commande</a>
   </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+
+    if (sessionId) {
+      fetch('/api/send-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      })
+      .then(r => r.json())
+      .then(data => {
+        const el = document.getElementById('email-status');
+        if (data.sent) {
+          el.textContent = `Un reçu a été envoyé à ${data.to}`;
+          el.style.color = '#6B4F30';
+        } else {
+          el.textContent = '';
+        }
+      })
+      .catch(() => {
+        document.getElementById('email-status').textContent = '';
+      });
+    }
+  </script>
 </body>
 </html>
